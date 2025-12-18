@@ -1,6 +1,7 @@
 import sourceMapSupport from "source-map-support"
 sourceMapSupport.install(options)
 import path from "path"
+import fs from "fs"
 import { PerfTimer } from "./util/perf"
 import { rm } from "fs/promises"
 import { GlobbyFilterFunction, isGitIgnored } from "globby"
@@ -85,6 +86,11 @@ async function buildQuartz(argv: Argv, mut: Mutex, clientRefresh: () => void) {
   const filteredContent = filterContent(ctx, parsedFiles)
 
   await emitContent(ctx, filteredContent)
+  
+  // 创建 .nojekyll 文件以禁用 GitHub Pages 的 Jekyll 处理
+  const nojekyllPath = joinSegments(argv.output, ".nojekyll") as FilePath
+  await fs.promises.writeFile(nojekyllPath, "")
+  
   console.log(
     styleText("green", `Done processing ${markdownPaths.length} files in ${perf.timeSince()}`),
   )
@@ -290,6 +296,12 @@ async function rebuild(changes: ChangeEvent[], clientRefresh: () => void, buildD
   }
 
   console.log(`Emitted ${emittedFiles} files to \`${argv.output}\` in ${perf.timeSince("rebuild")}`)
+  // 确保在增量构建时也存在 .nojekyll 文件
+  const nojekyllPath = joinSegments(argv.output, ".nojekyll") as FilePath
+  if (!fs.existsSync(nojekyllPath)) {
+    await fs.promises.writeFile(nojekyllPath, "")
+  }
+  
   console.log(styleText("green", `Done rebuilding in ${perf.timeSince()}`))
   changes.splice(0, numChangesInBuild)
   clientRefresh()
